@@ -69,7 +69,7 @@ Single-session enforcement, 60-second silence timeout, graceful WebRTC teardown.
 ```
   Browser (Kiosk)                          Backend (Python / aiohttp)
  ┌────────────────┐                       ┌──────────────────────────────────┐
- │                │   WebRTC audio/video   │                                  │
+ │                │   WebRTC audio/video  │                                  │
  │  Avatar Video  │◄─────────────────────►│  Pipecat Pipeline                │
  │  Transcript    │                       │                                  │
  │  Info Panels   │   WebSocket events    │  Mic ► Silero VAD ► OpenAI STT   │
@@ -79,9 +79,9 @@ Single-session enforcement, 60-second silence timeout, graceful WebRTC teardown.
                                           │       ► WebRTC Out               │
                                           │              │                   │
                                           │        ┌─────▼──────┐            │
-                                          │        │ Open Dental │            │
-                                          │        │   MySQL DB  │            │
-                                          │        └─────────────┘            │
+                                          │        │Open Dental │            │
+                                          │        │  MySQL DB  │            │
+                                          │        └────────────┘            │
                                           └──────────────────────────────────┘
 ```
 
