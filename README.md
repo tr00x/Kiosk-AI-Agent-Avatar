@@ -1,198 +1,196 @@
+<div align="center">
+
 # Kiosk AI Agent Avatar
 
-Real-time conversational AI kiosk with a lip-synced avatar for dental clinic patient self-service. Patients interact with **Emma** — an AI-powered virtual receptionist — using natural voice conversation, while seeing a realistic animated avatar on screen.
+### Real-time AI receptionist with lip-synced avatar for patient self-service
 
-Built on [Pipecat](https://github.com/pipecat-ai/pipecat) framework with WebRTC transport for ultra-low latency audio/video streaming.
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Pipecat](https://img.shields.io/badge/Pipecat-Framework-FF6B35?style=flat-square)](https://github.com/pipecat-ai/pipecat)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
+[![WebRTC](https://img.shields.io/badge/WebRTC-Realtime-333333?style=flat-square&logo=webrtc&logoColor=white)](https://webrtc.org)
+[![Simli](https://img.shields.io/badge/Simli_AI-Avatar-00D4AA?style=flat-square)](https://simli.com)
+[![License](https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square)]()
+
+<br>
+
+**Patients walk up to a kiosk, tap "Start", and talk to Emma — an AI receptionist who sees them, hears them, and handles everything from identity verification to appointment booking. No waiting in line. No front desk bottleneck.**
+
+<br>
+
+[Features](#-what-it-does) · [Architecture](#-architecture) · [Tech Stack](#-tech-stack) · [Setup](#-setup) · [Contact](#-hire-me)
+
+</div>
+
+<br>
+
+---
+
+<br>
+
+## What it does
+
+<table>
+<tr>
+<td width="50%">
+
+### Voice Conversation
+Continuous, natural speech interaction powered by **OpenAI Realtime STT** and **GPT-4o**. Local **Fish Speech** TTS for minimal latency. Local **Silero VAD** — voice activity never leaves the device.
+
+### Lip-Synced Avatar
+Photorealistic avatar by **Simli AI** — lip-syncs in real-time to speech output. 512x512 @ 30 FPS streamed via WebRTC. Zero plugins, runs in any browser.
+
+### Patient Verification
+"Hi, my name is John Smith, born March 15, 1985" — Emma looks up the patient in **Open Dental** database, verifies identity, and unlocks their records. Natural date parsing, 3 retry attempts, HIPAA audit logging.
+
+</td>
+<td width="50%">
+
+### Account & Appointments
+Check balance (net of insurance estimates), view upcoming visits with provider/procedure/room details, book new appointments (auto-generated confirmation numbers), send SMS reminders.
+
+### Manual Check-In
+Staff-accessible sidebar for non-voice check-in. Search by last name + DOB, view patient card, 30-second auto-reset for kiosk security.
+
+### Session Control
+Single-session enforcement, 60-second silence timeout, graceful WebRTC teardown. Multilingual UI — English, Spanish, Russian.
+
+</td>
+</tr>
+</table>
+
+<br>
 
 ---
 
-## Core Capabilities
-
-### Real-Time Voice Conversation
-- Continuous, natural speech recognition powered by **OpenAI Realtime STT** (`gpt-4o-transcribe`)
-- Intelligent conversation management via **OpenAI GPT-4o** LLM with function calling
-- High-quality text-to-speech using **Fish Speech v1.4** running locally for minimal latency
-- Local **Silero VAD** (Voice Activity Detection) — voice activity is processed on-device, not sent to cloud for detection
-- Responses are kept short and conversational (max ~20 words per turn) for a natural kiosk experience
-
-### Lip-Synced AI Avatar
-- Photorealistic avatar rendered in real-time by **Simli AI**
-- TTS audio is streamed directly to Simli, which returns lip-synced video frames
-- 512x512 resolution at 30 FPS via WebRTC
-- Idle loop video plays when no active session, seamless transition to live avatar on conversation start
-- Avatar renders in the browser with no plugins or installs required
-
-### Patient Verification & Identity
-- Voice-based patient lookup: patient states their name and date of birth
-- Verified against **Open Dental** practice management database in real-time
-- Natural date parsing — understands "March fifteenth nineteen eighty-five", "03/15/1985", and other formats
-- Up to 3 verification attempts with friendly re-prompts before redirecting to front desk staff
-- HIPAA-compliant audit logging for every data access event
-
-### Account Balance Inquiry
-- Retrieves patient balance from Open Dental after identity verification
-- Calculates net balance: `Total Balance - Insurance Estimate`
-- Displays balance in a slide-in info panel on screen while Emma reads it aloud
-- Shows insurance pending amounts when applicable
-
-### Appointment Management
-- **View upcoming appointments** — lists up to 5 scheduled visits with date, time, provider name, procedure, and room
-- **Book new appointments** — creates appointment requests in a dedicated `kiosk_appointment_requests` table with auto-generated confirmation numbers (e.g., `REQ-0001`). Staff reviews and confirms
-- **SMS reminders** — sends appointment reminder to patient's phone on file (phone number is masked in UI: `+1***XXXX`)
-- Procedure codes are automatically translated to human-readable names (e.g., `ImpCr` → `Implant Crown`, `RCT` → `Root Canal`)
-
-### Manual Check-In Sidebar
-- Staff-accessible side panel (slide-in from left edge) for non-voice check-in
-- Search by last name + date of birth
-- Displays patient card with appointment details
-- 30-second auto-reset countdown for kiosk security
-- Privacy-safe: returns an error if multiple patients match the same criteria
-
-### Session Management
-- Single-session enforcement — only one active conversation at a time to prevent conflicts
-- 60-second silence timeout with automatic session termination
-- Graceful WebRTC disconnection handling and pipeline cleanup
-- 2-second stabilization delay after WebRTC connect before greeting plays
-
-### Multilingual Support
-- Language toggle in the UI header: English, Spanish, Russian
-- Frontend labels and UI text adapt to selected language
-- Language preference stored in `localStorage` for persistence
-
----
+<br>
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Browser (Kiosk)                    │
-│                                                      │
-│  ┌──────────┐  ┌────────────┐  ┌──────────────────┐  │
-│  │  Avatar   │  │ Transcript │  │   Info Panels    │ │
-│  │  Video    │  │  Overlay   │  │ (Balance, Appts) │ │
-│  └────▲─────┘  └─────▲──────┘  └───────▲──────────┘  │
-│       │              │                  │            │
-│       │         WebSocket (events)      │            │
-│       │              │                  │            │
-│  WebRTC (audio/video)│                  │            │
-└───────┼──────────────┼──────────────────┼────────────┘
-        │              │                  │
-┌───────┼──────────────┼──────────────────┼────────────┐
-│       ▼              ▼                  │  Backend   │
-│  ┌─────────────────────────────────┐    │            │
-│  │        Pipecat Pipeline         │    │            │
-│  │                                 │    │            │
-│  │  Transport In (mic audio)       │    │            │
-│  │       ↓                         │    │            │
-│  │  Silero VAD (local)             │    │            │
-│  │       ↓                         │    │            │
-│  │  OpenAI Realtime STT            │    │            │
-│  │       ↓                         │    │            │
-│  │  LLM Context Aggregator         │    │            │
-│  │       ↓                         │    │            │
-│  │  OpenAI GPT-4o (+ functions)  ──┼────┘            │
-│  │       ↓                         │                 │
-│  │  Fish Speech TTS (local)        │                 │
-│  │       ↓                         │                 │
-│  │  Simli AI Avatar (lip-sync)     │                 │
-│  │       ↓                         │                 │
-│  │  Transport Out (video + audio)  │                 │
-│  └─────────────────────────────────┘                 │
-│                    │                                 │
-│              ┌─────▼─────┐                           │
-│              │ Open Dental│                          │
-│              │   MySQL    │                          │
-│              └────────────┘                          │
-└──────────────────────────────────────────────────────┘
+  Browser (Kiosk)                          Backend (Python / aiohttp)
+ ┌────────────────┐                       ┌──────────────────────────────────┐
+ │                │   WebRTC audio/video   │                                  │
+ │  Avatar Video  │◄─────────────────────►│  Pipecat Pipeline                │
+ │  Transcript    │                       │                                  │
+ │  Info Panels   │   WebSocket events    │  Mic ► Silero VAD ► OpenAI STT   │
+ │  Manual Sidebar│◄─────────────────────►│       ► GPT-4o (+ functions)     │
+ │                │                       │       ► Fish Speech TTS          │
+ └────────────────┘                       │       ► Simli AI Avatar          │
+                                          │       ► WebRTC Out               │
+                                          │              │                   │
+                                          │        ┌─────▼──────┐            │
+                                          │        │ Open Dental │            │
+                                          │        │   MySQL DB  │            │
+                                          │        └─────────────┘            │
+                                          └──────────────────────────────────┘
 ```
 
-### Conversation Flow (Pipecat Flows)
+### Conversation Flow
 
 ```
-greeting → verify_dob → main_menu ──→ check_balance ──→ main_menu / goodbye
-                │              │──→ view_appointments ─→ main_menu / goodbye
-                │              │──→ start_booking ─────→ main_menu / goodbye
-                │              └──→ send_reminder ─────→ main_menu / goodbye
+greeting ► verify_dob ► main_menu ──► check_balance ──► main_menu / goodbye
+                │              ├────► view_appointments ► main_menu / goodbye
+                │              ├────► start_booking ────► main_menu / goodbye
+                │              └────► send_reminder ────► main_menu / goodbye
                 │
-                └─→ not_found (retry up to 3x) → see_receptionist
+                └──► not_found (retry up to 3x) ► see_receptionist
 ```
 
-Each node includes a system prompt defining Emma's persona, task-specific instructions, available LLM functions, and pre/post actions (e.g., TTS greetings, session cleanup).
+Each node carries its own system prompt (Emma's persona), task instructions, LLM function schemas, and pre/post actions.
+
+<br>
 
 ---
+
+<br>
 
 ## Tech Stack
 
-| Component | Technology | Details |
-|-----------|-----------|---------|
-| **Framework** | [Pipecat](https://github.com/pipecat-ai/pipecat) | Real-time conversational AI pipeline framework |
-| **LLM** | OpenAI GPT-4o | Function calling for database queries |
-| **Speech-to-Text** | OpenAI Realtime STT | `gpt-4o-transcribe` model, multilingual |
-| **Text-to-Speech** | Fish Speech v1.4 | Local server, 44.1 kHz, custom voice cloning support |
-| **Avatar** | Simli AI | Real-time lip-synced video generation |
-| **VAD** | Silero VAD | Local voice activity detection (confidence 0.8) |
-| **Transport** | WebRTC (aiortc) | Peer-to-peer audio/video, SmallWebRTC transport |
-| **Web Server** | aiohttp | Async Python HTTP server |
-| **Database** | MySQL | Open Dental practice management system |
-| **Frontend** | Vanilla HTML/CSS/JS | Single-page kiosk application, dark theme |
+| Layer | Technology | Why |
+|:------|:-----------|:----|
+| **AI Framework** | [Pipecat](https://github.com/pipecat-ai/pipecat) | Modular real-time pipeline for voice AI agents |
+| **LLM** | OpenAI GPT-4o | Function calling for structured DB queries |
+| **Speech-to-Text** | OpenAI Realtime STT | `gpt-4o-transcribe` — fast, multilingual |
+| **Text-to-Speech** | Fish Speech v1.4 | Runs locally — zero network latency, voice cloning support |
+| **Avatar** | Simli AI | Real-time lip-sync from audio stream |
+| **VAD** | Silero VAD | On-device voice detection, no cloud dependency |
+| **Transport** | WebRTC (aiortc) | Sub-second peer-to-peer audio/video |
+| **Server** | aiohttp | Async Python, handles WebRTC signaling + WebSocket events |
+| **Database** | MySQL (Open Dental) | Direct queries against dental practice management system |
+| **Frontend** | Vanilla HTML/CSS/JS | Single-page kiosk app, dark glassmorphism theme |
+
+<br>
 
 ---
+
+<br>
 
 ## UI & Design
 
-- **Full-screen kiosk layout** — designed for touch-screen displays
-- **Dark theme** — `#0a0a0a` background with glassmorphism effects (backdrop blur, semi-transparent panels)
-- **Teal accent** (`#288d89`) with green/red status indicators
-- **Transcript overlay** — user speech in green italic, bot responses in white. Auto-fades after ~5 seconds
-- **Slide-in info panels** — balance, appointments, booking confirmations appear top-right with smooth animation. Auto-hide after 8 seconds
-- **Status indicator** — green (listening), blue (processing), amber (error)
-- **Loading overlay** — spinner with progress steps: Initializing → Connecting to Avatar → Waiting for Response
-- **Stop button** — red circle at bottom center to end conversation at any time
+| Element | Details |
+|:--------|:--------|
+| **Layout** | Full-screen kiosk, designed for touch displays |
+| **Theme** | Dark (`#0a0a0a`) with glassmorphism — backdrop blur, semi-transparent panels |
+| **Accent** | Teal `#288d89` with green/red status indicators |
+| **Transcript** | User speech in green italic, bot in white — auto-fades after 5s |
+| **Info panels** | Slide-in from top-right (balance, appointments, confirmations) — auto-hide after 8s |
+| **Status dot** | Green = listening, Blue = processing, Amber = error |
+| **Controls** | "Tap to Start" button, red stop circle, language toggle (EN/ES/RU) |
+
+<br>
 
 ---
+
+<br>
 
 ## WebSocket Events
 
-The backend broadcasts real-time events via WebSocket (`/events`) for UI updates:
+Real-time UI updates via `/events`:
 
 | Event | Payload | Description |
-|-------|---------|-------------|
+|:------|:--------|:------------|
 | `call_started` | — | Session began |
-| `call_ended` | `{ reason }` | Session ended |
-| `user_transcript` | `{ text }` | User speech transcription |
+| `call_ended` | `{ reason }` | Session terminated |
+| `user_transcript` | `{ text }` | Live user speech |
 | `bot_transcript` | `{ text }` | Bot response text |
-| `patient_verified` | `{ name, id }` | Patient identity confirmed |
-| `balance` | `{ amount, insurance }` | Account balance data |
-| `appointments` | `[{ date, time, provider, procedure }]` | Upcoming appointments |
-| `booking_confirmed` | `{ confirmation_number }` | Appointment request created |
+| `patient_verified` | `{ name, id }` | Identity confirmed |
+| `balance` | `{ amount, insurance }` | Account balance |
+| `appointments` | `[{ date, time, provider, procedure }]` | Upcoming visits |
+| `booking_confirmed` | `{ confirmation_number }` | New booking created |
 | `error` | `{ message }` | Error notification |
 
+<br>
+
 ---
+
+<br>
 
 ## API Endpoints
 
 | Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | Serves the kiosk UI (`index.html`) |
-| `POST` | `/api/offer` | WebRTC SDP offer/answer exchange |
-| `POST` | `/api/ice-candidate` | WebRTC ICE candidate handling |
-| `GET` | `/events` | WebSocket endpoint for real-time UI events |
+|:-------|:-----|:------------|
+| `GET` | `/` | Kiosk UI |
+| `POST` | `/api/offer` | WebRTC SDP exchange |
+| `POST` | `/api/ice-candidate` | ICE candidate handling |
+| `GET` | `/events` | WebSocket for real-time events |
 | `GET` | `/health` | Health check |
 
+<br>
+
 ---
+
+<br>
 
 ## Setup
 
 ### Prerequisites
 
 - Python 3.12+
-- MySQL server with Open Dental database
+- MySQL with Open Dental database
 - Fish Speech v1.4 server
 - API keys: OpenAI, Simli AI
 
-### Environment Variables
-
-Create a `.env` file:
+### Environment
 
 ```env
 OPENAI_API_KEY=sk-...
@@ -210,80 +208,97 @@ FISH_SPEECH_URL=http://localhost:8090
 FISH_SPEECH_REF=<speaker-reference-id>
 ```
 
-### Installation
+### Install & Run
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+# Install
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-```
 
-### Running
-
-Terminal 1 — Fish Speech TTS server:
-```bash
+# Terminal 1 — TTS server
 python tools/api.py --listen 127.0.0.1:8090 --device mps --mode tts
-```
 
-Terminal 2 — Kiosk application:
-```bash
+# Terminal 2 — Kiosk
 python main.py
+# → http://localhost:8080
 ```
 
-Open `http://localhost:8080` in a browser (or on the kiosk display).
+<br>
 
 ---
+
+<br>
 
 ## Project Structure
 
 ```
-├── main.py          # Web server, session management, WebRTC signaling
-├── agent.py         # Pipecat pipeline construction (STT → LLM → TTS → Avatar)
-├── flow.py          # Conversation flow nodes (greeting, verification, menu)
-├── tools.py         # Database tools (patient lookup, balance, appointments, booking)
-├── fish_tts.py      # Custom Pipecat TTS service for Fish Speech v1.4
-├── db.py            # MySQL connection pool with retry logic
-├── index.html       # Kiosk frontend (single-page app)
-├── requirements.txt # Python dependencies
-└── .env             # Environment variables (not committed)
+├── main.py            Web server, sessions, WebRTC signaling
+├── agent.py           Pipecat pipeline (STT → LLM → TTS → Avatar)
+├── flow.py            Conversation nodes (greeting → verify → menu)
+├── tools.py           DB tools (patient lookup, balance, appointments, booking)
+├── fish_tts.py        Custom TTS service for Fish Speech v1.4
+├── db.py              MySQL connection pool with retry
+├── index.html         Kiosk frontend (single-page dark theme app)
+├── requirements.txt   Python dependencies
+└── .env               API keys & config (not committed)
 ```
 
+<br>
+
 ---
+
+<br>
 
 ## Security & Compliance
 
-- **HIPAA audit logging** — every patient data access is recorded in `kiosk_audit_log` with timestamp, action, and patient ID
-- **Patient verification required** — no data is shown until identity is confirmed via name + date of birth
-- **Phone number masking** — displayed as `+1***XXXX` in UI and logs
-- **Privacy-safe search** — manual check-in returns an error if multiple patients match, preventing data leakage
-- **Single-session isolation** — only one active conversation at a time
-- **Auto-timeout** — sessions end after 60 seconds of silence
+| Measure | Implementation |
+|:--------|:---------------|
+| **HIPAA audit trail** | Every data access logged to `kiosk_audit_log` with timestamp, action, patient ID |
+| **Identity verification** | Name + DOB required before any data is shown |
+| **Phone masking** | Displayed as `+1***XXXX` in UI and logs |
+| **Privacy-safe search** | Returns error if multiple patients match — prevents data leakage |
+| **Session isolation** | One active conversation at a time |
+| **Auto-timeout** | 60 seconds of silence = session ends |
+
+<br>
 
 ---
+
+<br>
 
 ## Avatar Idle Video
 
-The avatar idle loop video (15 MB) is not included in this repository. You can download it and place it in the project root:
+The idle loop video (15 MB) is not included in this repo. Download and place in the project root:
 
-[Download idle video (MP4)](https://storage.googleapis.com/simliai2.appspot.com/videos/f0ba4efe-7946-45de-9955-c04a04c367b9.mp4)
+> **[Download idle video (MP4)](https://storage.googleapis.com/simliai2.appspot.com/videos/f0ba4efe-7946-45de-9955-c04a04c367b9.mp4)**
 
-> **Note:** Simli AI provides 50 free minutes per month — more than enough for testing and evaluation.
+Simli AI provides **50 free minutes/month** — more than enough for testing.
 
----
-
-## Looking for a Technical Partner?
-
-I built this end-to-end — from real-time voice pipeline and avatar integration to the database layer and kiosk UI. If your company needs a production-grade conversational AI solution but doesn't have the engineering talent to build one, let's talk.
-
-I'm available for contract work, consulting, and full builds.
-
-**Get in touch:**
-
-[![Email](https://img.shields.io/badge/Email-tr00x%40proton.me-blue?style=for-the-badge&logo=protonmail&logoColor=white)](mailto:tr00x@proton.me)
-[![Telegram](https://img.shields.io/badge/Telegram-@tr00x-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/tr00x)
+<br>
 
 ---
 
-## License
+<br>
 
-All rights reserved.
+<div align="center">
+
+## Hire Me
+
+I built this entire system solo — real-time voice pipeline, avatar integration,
+database layer, HIPAA compliance, and kiosk UI.
+
+**If your company needs production-grade conversational AI but lacks the engineering team to build it — I'm your guy.**
+
+Contract work · Consulting · Full builds
+
+<br>
+
+[![Email](https://img.shields.io/badge/tr00x@proton.me-black?style=for-the-badge&logo=protonmail&logoColor=white)](mailto:tr00x@proton.me)&nbsp;&nbsp;&nbsp;[![Telegram](https://img.shields.io/badge/@tr00x-black?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/tr00x)
+
+<br>
+
+---
+
+**All rights reserved.**
+
+</div>
