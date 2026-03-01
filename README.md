@@ -261,6 +261,23 @@ Open `http://localhost:8080` in a browser (or on the kiosk display).
 
 ---
 
+## Demo
+
+https://github.com/user-attachments/assets/placeholder
+
+https://storage.googleapis.com/simliai2.appspot.com/videos/f0ba4efe-7946-45de-9955-c04a04c367b9.mp4
+
+---
+
+## Contact
+
+If you're interested in this project, I'd be happy to work on improvements and upgrades.
+
+- Email: [tr00x@proton.me](mailto:tr00x@proton.me)
+- Telegram: [@tr00x](https://t.me/tr00x)
+
+---
+
 ## License
 
 All rights reserved.
