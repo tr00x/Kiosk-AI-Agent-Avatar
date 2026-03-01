@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Nassau Dental - Kiosk</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    color: #fff;
+  }
+
+  /* --- Avatar video --- */
+  #avatar-video {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    background: #0a0a0a;
+  }
+
+  /* --- Status bar --- */
+  #status {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 8px 28px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  #status.hidden {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+    pointer-events: none;
+  }
+  #status .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  #status .status-dot.green { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
+  #status .status-dot.blue  { background: #3b82f6; box-shadow: 0 0 8px #3b82f688; }
+  #status .status-dot.amber { background: #f59e0b; box-shadow: 0 0 8px #f59e0b88; }
+
+  /* (mic indicator removed — replaced by centered stop button) */
+
+  /* --- Info panels --- */
+  #panels {
+    position: fixed;
+    top: 72px; right: 20px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 340px;
+  }
+  .panel {
+    background: rgba(18,18,22,0.88);
+    backdrop-filter: blur(20px);
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    transform: translateX(calc(100% + 40px));
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .panel.show { transform: translateX(0); }
+  .panel.dismiss { transform: translateX(calc(100% + 40px)); transition: transform 0.3s; }
+  .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .panel-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .panel-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+  .panel-body { font-size: 14px; line-height: 1.6; color: #b0b0b0; }
+  .panel-body strong { color: #fff; }
+  .panel.green .panel-icon { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .panel.green .panel-title { color: #22c55e; }
+  .panel.green { border-color: rgba(34,197,94,0.15); }
+  .panel.blue .panel-icon { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .panel.blue .panel-title { color: #3b82f6; }
+  .panel.blue { border-color: rgba(59,130,246,0.15); }
+  .panel.white .panel-icon { background: rgba(255,255,255,0.08); color: #e0e0e0; }
+  .panel.white .panel-title { color: #ccc; }
+  .panel.red .panel-icon { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .panel.red .panel-title { color: #ef4444; }
+  .panel.red { border-color: rgba(239,68,68,0.15); }
+  .apt-card { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 10px 12px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.05); }
+  .apt-card + .apt-card { margin-top: 6px; }
+  .apt-type { font-weight: 600; color: #fff; font-size: 14px; }
+  .apt-time { color: #999; font-size: 13px; margin-top: 2px; }
+  .apt-provider { color: #666; font-size: 12px; margin-top: 2px; }
+
+  /* --- Overlays --- */
+  #error-overlay, #busy-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 1000;
+    align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+  }
+  #error-overlay { background: linear-gradient(135deg, #1a0505, #2d0a0a); }
+  #error-overlay.show, #busy-overlay.show, #timeout-overlay.show { display: flex; }
+  .error-icon { width: 64px; height: 64px; border-radius: 50%; background: rgba(239,68,68,0.15); display: flex; align-items: center; justify-content: center; font-size: 28px; color: #ef4444; }
+  #busy-overlay { background: rgba(0,0,0,0.85); z-index: 900; }
+
+  /* --- Loading overlay --- */
+  #loading-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 600;
+    background: rgba(10,10,10,0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    align-items: center; justify-content: center; flex-direction: column; gap: 20px;
+    transition: opacity 0.5s ease;
+  }
+  #loading-overlay.show { display: flex; }
+  #loading-overlay.fade-out { opacity: 0; pointer-events: none; }
+  .loader-ring {
+    width: 72px; height: 72px;
+    border: 3px solid rgba(40,141,137,0.12);
+    border-top-color: #288d89;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  .loader-text { font-size: 20px; font-weight: 400; color: #e0e0e0; }
+  .loader-sub { font-size: 13px; color: #666; margin-top: -8px; }
+  .loader-steps {
+    display: flex; gap: 32px; margin-top: 8px;
+  }
+  .loader-step {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: #444; transition: color 0.4s;
+  }
+  .loader-step.active { color: #288d89; }
+  .loader-step.done { color: #22c55e; }
+  .loader-step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #333; transition: background 0.4s, box-shadow 0.4s;
+    flex-shrink: 0;
+  }
+  .loader-step.active .loader-step-dot {
+    background: #288d89; box-shadow: 0 0 8px #288d8988;
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+  .loader-step.done .loader-step-dot { background: #22c55e; box-shadow: 0 0 6px #22c55e66; }
+  @keyframes pulse-dot {
+    0%, 80%, 100% { opacity: 0.5; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.1); }
+  }
+
+  /* --- Idle avatar video (background behind idle screen) --- */
+  #idle-video {
+    position: fixed; inset: 0; z-index: 490;
+    width: 100vw; height: 100vh;
+    object-fit: cover;
+    opacity: 1;
+    transition: opacity 0.8s ease;
+  }
+  #idle-video.hidden { opacity: 0; pointer-events: none; }
+
+  /* --- Idle screen --- */
+  #idle-screen {
+    position: fixed; inset: 0; z-index: 500;
+    background: linear-gradient(to top, rgba(10,10,10,0.92) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.3) 70%, rgba(10,10,10,0.5) 100%);
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+    transition: opacity 0.6s ease;
+  }
+  #idle-screen.hidden { opacity: 0; pointer-events: none; }
+  .idle-logo-card { background: #fff; padding: 20px 32px; border-radius: 16px; margin-bottom: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.3); }
+  .idle-logo-card img { display: block; height: 44px; width: auto; }
+  #idle-screen p { font-size: 16px; color: rgba(255,255,255,0.6); margin-bottom: 8px; }
+
+  #start-btn {
+    margin-top: 28px; padding: 16px 48px; border-radius: 32px; border: none;
+    background: linear-gradient(135deg, #288d89, #1f7571); color: #fff;
+    font-size: 18px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 24px rgba(40,141,137,0.35);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  #start-btn:hover { transform: scale(1.04); box-shadow: 0 6px 32px rgba(40,141,137,0.5); }
+  #start-btn:active { transform: scale(0.97); }
+  #start-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-spinner { display: none; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 10px; vertical-align: middle; }
+  #start-btn.loading .btn-spinner { display: inline-block; }
+
+  #stop-btn {
+    display: none; position: fixed; bottom: 28px; left: 50%; z-index: 300;
+    transform: translateX(-50%);
+    width: 56px; height: 56px; border-radius: 50%; border: none;
+    background: rgba(239,68,68,0.8); color: #fff;
+    cursor: pointer; backdrop-filter: blur(12px);
+    align-items: center; justify-content: center;
+    transition: transform 0.2s, background 0.2s;
+    box-shadow: 0 4px 20px rgba(239,68,68,0.3);
+  }
+  #stop-btn:hover { transform: translateX(-50%) scale(1.1); background: rgba(239,68,68,1); }
+  #stop-btn.show { display: flex; }
+
+  /* --- Transcript overlay --- */
+  #transcript {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 150;
+    max-width: 680px;
+    width: 90%;
+    text-align: center;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .transcript-line {
+    padding: 8px 20px;
+    border-radius: 16px;
+    font-size: 15px;
+    line-height: 1.4;
+    max-width: 100%;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: transcript-in 0.3s ease forwards;
+  }
+  .transcript-line.fade-out {
+    animation: transcript-out 0.5s ease forwards;
+  }
+  .transcript-bot {
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .transcript-user {
+    background: rgba(34,197,94,0.15);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(34,197,94,0.2);
+    font-style: italic;
+  }
+  @keyframes transcript-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes transcript-out {
+    to { opacity: 0; transform: translateY(-6px); }
+  }
+
+  /* --- Manual check-in button (always visible) --- */
+  #manual-btn {
+    position: fixed;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 700;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding: 20px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(18,18,22,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #ccc;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  #manual-btn:hover {
+    background: rgba(59,130,246,0.15);
+    border-color: rgba(59,130,246,0.3);
+    color: #3b82f6;
+  }
+  #manual-btn.active {
+    background: rgba(59,130,246,0.2);
+    border-color: rgba(59,130,246,0.4);
+    color: #3b82f6;
+  }
+
+  /* --- Help button (always visible, right edge) --- */
+  #help-btn {
+    position: fixed;
+    right: 20px;
+    bottom: 28px;
+    z-index: 700;
+    padding: 12px 20px;
+    border-radius: 24px;
+    border: 1px solid rgba(40,141,137,0.2);
+    background: rgba(18,18,22,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #288d89;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  #help-btn:hover {
+    background: rgba(40,141,137,0.15);
+    border-color: rgba(40,141,137,0.4);
+  }
+
+  /* --- Manual sidebar panel --- */
+  #manual-sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 420px;
+    max-width: 90vw;
+    z-index: 650;
+    background: rgba(14,14,18,0.96);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 4px 0 40px rgba(0,0,0,0.6);
+    transform: translateX(-100%);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  #manual-sidebar.open { transform: translateX(0); }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+  .sidebar-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .sidebar-close {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #888;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .sidebar-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+  .sidebar-body {
+    flex: 1;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .manual-heading { text-align: center; margin-bottom: 4px; }
+  .manual-heading h2 { font-size: 22px; font-weight: 300; margin-bottom: 4px; }
+  .manual-heading .subtitle { font-size: 14px; color: #888; }
+
+  .manual-field { width: 100%; }
+  .manual-label { font-size: 12px; color: #777; margin-bottom: 6px; }
+  .manual-input {
+    width: 100%;
+    padding: 14px 16px;
+    min-height: 48px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 17px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .manual-input::placeholder { color: #555; }
+  .manual-input:focus { border-color: rgba(34,197,94,0.5); }
+
+  .manual-find-btn {
+    width: 100%;
+    padding: 14px;
+    min-height: 48px;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, #288d89, #1f7571);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 20px rgba(40,141,137,0.3);
+    margin-top: 4px;
+  }
+  .manual-find-btn:hover { transform: scale(1.02); box-shadow: 0 6px 28px rgba(40,141,137,0.45); }
+  .manual-find-btn:active { transform: scale(0.98); }
+  .manual-find-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Manual result cards */
+  .manual-result-card {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    text-align: center;
+  }
+  .manual-result-card .patient-name { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .manual-result-card .apt-time-large { font-size: 32px; font-weight: 600; color: #22c55e; margin: 10px 0; }
+  .manual-result-card .apt-details { font-size: 14px; color: #999; line-height: 1.6; }
+  .manual-result-card .apt-details strong { color: #ccc; }
+
+  .manual-list-item {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .manual-list-item:hover { background: rgba(255,255,255,0.08); }
+  .manual-list-item .name { font-size: 16px; font-weight: 500; }
+  .manual-list-item .time { font-size: 14px; color: #22c55e; }
+
+  .manual-error {
+    width: 100%;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .manual-error .err-title { font-size: 16px; font-weight: 500; color: #ef4444; margin-bottom: 6px; }
+  .manual-error .err-sub { font-size: 14px; color: #999; }
+
+  .countdown-text { font-size: 12px; color: #555; margin-top: 12px; }
+
+  .manual-back-btn {
+    padding: 10px 24px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: transparent;
+    color: #999;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+  }
+  .manual-back-btn:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+
+  /* --- Tool activity indicator --- */
+  #activity-bar {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 250;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    border-radius: 20px;
+    background: rgba(18,18,22,0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(59,130,246,0.2);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+  }
+  #activity-bar.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .activity-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(59,130,246,0.2);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  .activity-text {
+    font-size: 13px;
+    color: #93a3b8;
+    white-space: nowrap;
+  }
+
+  /* --- Language toggle --- */
+  #lang-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 750;
+    display: flex;
+    gap: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(18,18,22,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .lang-opt {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: #666;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .lang-opt.active {
+    background: rgba(40,141,137,0.15);
+    color: #288d89;
+  }
+  .lang-opt:hover:not(.active) { color: #aaa; }
+
+  /* --- Check-in button in multi-view --- */
+  .checkin-multi-btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 2px 12px rgba(59,130,246,0.3);
+  }
+  .checkin-multi-btn:hover { transform: scale(1.02); }
+  .checkin-multi-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .checkin-multi-status { font-size: 13px; margin-top: 4px; text-align: center; min-height: 18px; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<video id="idle-video" autoplay loop muted playsinline src="/idle-avatar.mp4" style="pointer-events:none"></video>
+<video id="avatar-video" autoplay playsinline></video>
+<audio id="remote-audio" autoplay></audio>
+
+<div id="status" class="hidden">
+  <span class="status-dot green"></span>Listening
+</div>
+
+<!-- mic indicator removed -->
+
+<div id="transcript"></div>
+
+<div id="panels"></div>
+
+<!-- Tool activity indicator -->
+<div id="activity-bar">
+  <div class="activity-spinner"></div>
+  <span class="activity-text" id="activity-text">Processing...</span>
+</div>
+
+<!-- Language toggle — always visible top-right -->
+<div id="lang-toggle">
+  <button class="lang-opt active" data-lang="en">EN</button>
+  <button class="lang-opt" data-lang="es">ES</button>
+  <button class="lang-opt" data-lang="ru">RU</button>
+</div>
+
+<!-- Persistent manual check-in button — always visible on left edge -->
+<button id="manual-btn" data-i18n="manual_btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="15" x2="16" y2="15"/><circle cx="7" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="12" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="17" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="7" cy="11" r=".8" fill="currentColor" stroke="none"/><circle cx="12" cy="11" r=".8" fill="currentColor" stroke="none"/><circle cx="17" cy="11" r=".8" fill="currentColor" stroke="none"/></svg>Manual<br>Check-in</button>
+
+<!-- Help button — always visible bottom-right -->
+<button id="help-btn" data-i18n="help_btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Need Help?</button>
+
+<!-- Help overlay -->
+<div id="help-overlay" style="display:none;position:fixed;inset:0;z-index:980;background:rgba(0,0,0,0.92);align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <div style="width:64px;height:64px;border-radius:50%;background:rgba(40,141,137,0.15);display:flex;align-items:center;justify-content:center">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#288d89" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  </div>
+  <span style="font-size:24px;font-weight:500" data-i18n="help_title">Need Assistance?</span>
+  <span style="font-size:16px;color:#999;text-align:center;max-width:400px" data-i18n="help_body">Please see our receptionist at the front desk.</span>
+  <button id="help-close-btn" style="margin-top:20px;padding:14px 40px;border-radius:28px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#ccc;font-size:16px;cursor:pointer;transition:all 0.2s" data-i18n="help_close">Close</button>
+</div>
+
+<!-- Manual sidebar (slides in from left) -->
+<div id="manual-sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-title" data-i18n="sidebar_title">Manual Check-in</span>
+    <button class="sidebar-close" id="sidebar-close">&times;</button>
+  </div>
+  <div class="sidebar-body">
+    <!-- Search screen -->
+    <div id="manual-search-screen" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:16px">
+      <div class="manual-heading">
+        <h2 data-i18n="sidebar_welcome">Welcome!</h2>
+        <div class="subtitle" data-i18n="sidebar_find_apt">Find your appointment</div>
+      </div>
+      <div class="manual-field">
+        <div class="manual-label" data-i18n="label_lastname">Last Name</div>
+        <input type="text" id="manual-lastname" class="manual-input" data-i18n-placeholder="ph_lastname" placeholder="Enter your last name" autocomplete="off">
+      </div>
+      <div class="manual-field">
+        <div class="manual-label" data-i18n="label_dob">Date of Birth (MM/DD/YYYY)</div>
+        <input type="text" id="manual-dob" class="manual-input" placeholder="MM/DD/YYYY" autocomplete="off">
+      </div>
+      <button id="manual-find-btn" class="manual-find-btn" data-i18n="find_btn">Find</button>
+    </div>
+    <!-- Results screen -->
+    <div id="manual-results-screen" style="width:100%;display:none;flex-direction:column;align-items:center;gap:12px"></div>
+  </div>
+</div>
+
+<div id="idle-screen">
+  <div class="idle-logo-card"><img src="/logo.jpg" alt="All Nassau Dental" /></div>
+  <p data-i18n="idle_subtitle">AI-powered receptionist</p>
+  <button id="start-btn">
+    <span class="btn-spinner"></span>
+    <span class="btn-text" data-i18n="start_btn">Tap to Start</span>
+  </button>
+</div>
+
+<button id="stop-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+
+<div id="error-overlay">
+  <div class="error-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+  <span style="font-size:24px;font-weight:600" data-i18n="error_title">System Unavailable</span>
+  <span style="font-size:16px;color:#999" data-i18n="error_sub">Please see front desk for assistance.</span>
+  <button id="error-retry-btn" style="margin-top:20px;padding:14px 40px;border-radius:28px;border:none;background:rgba(239,68,68,0.3);color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s" data-i18n="error_retry">Try Again</button>
+</div>
+
+<!-- Session timeout overlay -->
+<div id="timeout-overlay" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.92);align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <div style="width:64px;height:64px;border-radius:50%;background:rgba(40,141,137,0.15);display:flex;align-items:center;justify-content:center">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#288d89" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+  </div>
+  <span style="font-size:22px;font-weight:500" data-i18n="timeout_title">Session Ended</span>
+  <span style="font-size:15px;color:#888" data-i18n="timeout_sub">Ended due to inactivity</span>
+  <span id="timeout-countdown" style="font-size:13px;color:#555;margin-top:8px"></span>
+</div>
+
+<div id="loading-overlay">
+  <div class="loader-ring"></div>
+  <span class="loader-text" data-i18n="loading_text">Preparing your receptionist</span>
+  <div class="loader-steps">
+    <div class="loader-step active" id="step-connect"><span class="loader-step-dot"></span><span data-i18n="step_connect">Connecting</span></div>
+    <div class="loader-step" id="step-avatar"><span class="loader-step-dot"></span><span data-i18n="step_avatar">Loading avatar</span></div>
+    <div class="loader-step" id="step-ready"><span class="loader-step-dot"></span><span data-i18n="step_ready">Almost ready</span></div>
+  </div>
+  <span class="loader-sub" data-i18n="loading_sub">Usually 5-15 seconds</span>
+</div>
+
+<div id="busy-overlay">
+  <div style="width:36px;height:36px;border:2px solid rgba(255,255,255,0.1);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite"></div>
+  <span style="font-size:16px;color:#aaa" data-i18n="busy_text">Kiosk is currently in use. Please wait.</span>
+</div>
+
+<script>
+(function() {
+  var videoEl  = document.getElementById("avatar-video");
+  var idleVideoEl = document.getElementById("idle-video");
+  var audioEl  = document.getElementById("remote-audio");
+  var statusEl = document.getElementById("status");
+  // mic indicator removed — stop btn now at bottom center
+  var panelsEl = document.getElementById("panels");
+  var idleEl   = document.getElementById("idle-screen");
+  var errorEl  = document.getElementById("error-overlay");
+  var busyEl   = document.getElementById("busy-overlay");
+  var startBtn  = document.getElementById("start-btn");
+  var stopBtn   = document.getElementById("stop-btn");
+  var loadingEl    = document.getElementById("loading-overlay");
+  var transcriptEl = document.getElementById("transcript");
+
+  var activityBar  = document.getElementById("activity-bar");
+  var activityText = document.getElementById("activity-text");
+  var activityTimer = null;
+
+  var pc = null;
+  var pcId = null;
+  var videoPlaying = false;
+  var sessionStarted = false;
+
+  // ─── Ringing tone removed — silent loading ─────────────────────
+  function startRinging() {}
+  function stopRinging() {}
+
+  // ─── Loading step indicators ───────────────────────────────────
+  var stepConnect = document.getElementById("step-connect");
+  var stepAvatar  = document.getElementById("step-avatar");
+  var stepReady   = document.getElementById("step-ready");
+  function setLoadingStep(step) {
+    [stepConnect, stepAvatar, stepReady].forEach(function(el) {
+      el.className = "loader-step";
+    });
+    if (step >= 1) { stepConnect.className = "loader-step done"; }
+    if (step >= 2) { stepAvatar.className = "loader-step done"; }
+    if (step === 0) { stepConnect.className = "loader-step active"; }
+    if (step === 1) { stepAvatar.className = "loader-step active"; }
+    if (step === 2) { stepReady.className = "loader-step active"; }
+    if (step >= 3) { stepReady.className = "loader-step done"; }
+  }
+
+  // ─── Activity indicator ───────────────────────────────────────
+  function showActivity(label) {
+    activityText.textContent = label || "Processing...";
+    activityBar.classList.add("show");
+    clearTimeout(activityTimer);
+    // Auto-hide after 8s in case we miss the result event
+    activityTimer = setTimeout(hideActivity, 8000);
+  }
+  function hideActivity() {
+    activityBar.classList.remove("show");
+    clearTimeout(activityTimer);
+  }
+
+  // ─── Status helpers ─────────────────────────────────────────────
+  function setStatus(text, color) {
+    var dot = statusEl.querySelector(".status-dot");
+    dot.className = "status-dot " + (color || "green");
+    dot.nextSibling.textContent = text;
+    statusEl.classList.remove("hidden");
+  }
+  function hideStatus() { statusEl.classList.add("hidden"); }
+  function setMicActive(on) { /* no-op, mic indicator removed */ }
+
+  // ─── Panels ─────────────────────────────────────────────────────
+  function showPanel(color, icon, title, bodyHTML, ms) {
+    ms = ms || 5000;
+    var el = document.createElement("div");
+    el.className = "panel " + color;
+    el.innerHTML = '<div class="panel-header"><div class="panel-icon">' + icon + '</div><div class="panel-title">' + title + '</div></div><div class="panel-body">' + bodyHTML + '</div>';
+    panelsEl.appendChild(el);
+    requestAnimationFrame(function() { requestAnimationFrame(function() { el.classList.add("show"); }); });
+    setTimeout(function() { el.classList.remove("show"); el.classList.add("dismiss"); setTimeout(function() { el.remove(); }, 400); }, ms);
+  }
+  function fmt(n) { return "$" + Number(n).toFixed(2); }
+  function esc(s) { return s ? String(s).replace(/</g,"&lt;").replace(/>/g,"&gt;") : ""; }
+  // SVG icons for panels (no emoji)
+  var _ic = {
+    check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    dollar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>',
+    cal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    sms: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+  };
+
+  // ─── Transcript ────────────────────────────────────────────────
+  var botLineEl = null;
+  var userLineEl = null;
+  var userFadeTimer = null;
+  var botFadeTimer = null;
+
+  function showTranscript(role, text) {
+    if (role === "user") {
+      if (!userLineEl) {
+        userLineEl = document.createElement("div");
+        userLineEl.className = "transcript-line transcript-user";
+        transcriptEl.prepend(userLineEl);
+      }
+      userLineEl.classList.remove("fade-out");
+      userLineEl.textContent = text;
+      userLineEl.scrollIntoView({ behavior: "smooth", block: "end" });
+      clearTimeout(userFadeTimer);
+      userFadeTimer = setTimeout(function() {
+        if (userLineEl) {
+          userLineEl.classList.add("fade-out");
+          setTimeout(function() { if (userLineEl) { userLineEl.remove(); userLineEl = null; } }, 500);
+        }
+      }, 4000);
+    }
+    if (role === "bot") {
+      if (!botLineEl) {
+        botLineEl = document.createElement("div");
+        botLineEl.className = "transcript-line transcript-bot";
+        transcriptEl.appendChild(botLineEl);
+      }
+      botLineEl.classList.remove("fade-out");
+      botLineEl.textContent = text;
+      botLineEl.scrollIntoView({ behavior: "smooth", block: "end" });
+      clearTimeout(botFadeTimer);
+      botFadeTimer = setTimeout(function() {
+        if (botLineEl) {
+          botLineEl.classList.add("fade-out");
+          setTimeout(function() { if (botLineEl) { botLineEl.remove(); botLineEl = null; } }, 500);
+        }
+      }, 5000);
+    }
+  }
+
+  function clearTranscript() {
+    transcriptEl.innerHTML = "";
+    botLineEl = null;
+    userLineEl = null;
+    clearTimeout(userFadeTimer);
+    clearTimeout(botFadeTimer);
+  }
+
+  // ─── WebSocket (for tool event panels) ──────────────────────────
+  var ws = null, wsTimer = null;
+  function connectWS() {
+    if (ws && ws.readyState <= 1) return;
+    var proto = location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(proto + "//" + location.host + "/events");
+    ws.onopen = function() { console.log("[WS] connected to /events"); };
+    ws.onclose = function(e) { console.warn("[WS] closed, code=" + e.code + ", reconnecting in 2s"); clearTimeout(wsTimer); wsTimer = setTimeout(connectWS, 2000); };
+    ws.onerror = function(e) { console.error("[WS] error", e); };
+    ws.onmessage = function(e) { try { handleEvent(JSON.parse(e.data)); } catch(ex) { console.error("[WS] parse error", ex, e.data); } };
+  }
+  function wsSend(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+  function handleEvent(msg) {
+    var ev = msg.event, data = msg.data || {};
+    console.log("[Event] " + ev, data);
+    switch (ev) {
+      case "call_started":
+        console.log("[Flow] call_started — sessionStarted=true, videoPlaying=" + videoPlaying);
+        sessionStarted = true;
+        setStatus("Loading avatar...", "amber");
+        setLoadingStep(2);
+        stopBtn.classList.add("show");
+        if (videoPlaying) {
+          idleEl.classList.add("hidden");
+          setMicActive(true);
+          setStatus("Listening", "green");
+        }
+        break;
+      case "session_ended":
+        console.log("[Flow] session_ended — cleaning up");
+        cleanup();
+        break;
+      case "session_timeout":
+        console.log("[Flow] session_timeout — showing timeout overlay");
+        cleanup();
+        showTimeoutOverlay();
+        break;
+      case "busy":
+        console.warn("[Flow] Kiosk busy");
+        busyEl.classList.add("show");
+        break;
+      case "avatar_error":
+        console.error("[Flow] avatar_error:", data.message || data);
+        stopRinging();
+        loadingEl.classList.remove("show");
+        errorEl.classList.add("show");
+        resetStartBtn();
+        break;
+      case "tool_activity":
+        if (data.status === "started") showActivity(data.label);
+        break;
+      case "patient_verified":
+        hideActivity();
+        showPanel("green", _ic.check, "Patient Verified", "<strong>" + esc(data.name) + "</strong><br><span style='color:#888'>ID: " + esc(data.id) + "</span>");
+        break;
+      case "not_found":
+        hideActivity();
+        showPanel("red", _ic.x, "Patient Not Found", "No matching patient found.<br>Please see front desk for help.");
+        break;
+      case "balance":
+        hideActivity();
+        if (data.amount === 0) showPanel("blue", _ic.dollar, "Account Balance", "<strong>No balance due</strong>");
+        else showPanel("blue", _ic.dollar, "Balance Due", "<strong style='font-size:20px'>" + fmt(data.amount) + "</strong>");
+        break;
+      case "appointments":
+        hideActivity();
+        if (Array.isArray(data) && data.length > 0) {
+          var h = "";
+          data.forEach(function(a) { h += '<div class="apt-card"><div class="apt-type">' + esc(a.type) + '</div><div class="apt-time">' + esc(a.date) + ' at ' + esc(a.time) + '</div><div class="apt-provider">' + esc(a.provider) + '</div></div>'; });
+          showPanel("white", _ic.cal, "Upcoming Appointments", h, 8000);
+        } else showPanel("white", _ic.cal, "Appointments", "No upcoming appointments.");
+        break;
+      case "booking_confirmed":
+        hideActivity();
+        showPanel("green", _ic.check, "Appointment Booked", "Confirmation: <strong>" + esc(data.confirmation) + "</strong><br>" + esc(data.date) + " at " + esc(data.time));
+        break;
+      case "sms_sent":
+        hideActivity();
+        showPanel("green", _ic.sms, "Reminder Sent", "SMS sent to <strong>" + esc(data.phone) + "</strong>");
+        break;
+      case "user_transcript":
+        console.log("[STT] user: " + (data.text || ""));
+        showTranscript("user", data.text || "");
+        if (sessionStarted) setStatus("Processing...", "blue");
+        break;
+      case "bot_transcript":
+        console.log("[TTS] bot: " + (data.text || ""));
+        showTranscript("bot", data.text || "");
+        if (sessionStarted) setStatus("Speaking", "green");
+        break;
+      case "bot_stopped_speaking":
+        if (sessionStarted) setStatus("Listening", "green");
+        break;
+      case "manual_search_results":
+        if (typeof handleManualResults === "function") handleManualResults(data);
+        break;
+      case "checkin_result":
+        if (typeof handleCheckinResult === "function") handleCheckinResult(data);
+        break;
+      default:
+        console.log("[WS] unhandled:", ev, data);
+    }
+  }
+
+  // ─── WebRTC ─────────────────────────────────────────────────────
+  var _t0 = 0;
+  async function startWebRTC() {
+    _t0 = performance.now();
+    console.log("[WebRTC] startWebRTC() called");
+    setStatus("Connecting...", "amber");
+
+    var stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false,
+      });
+      console.log("[WebRTC] mic acquired +" + ((performance.now() - _t0)|0) + "ms");
+    } catch(e) {
+      console.error("[WebRTC] mic error:", e);
+      errorEl.classList.add("show");
+      resetStartBtn();
+      return;
+    }
+
+    idleEl.classList.add("hidden");
+    idleVideoEl.classList.add("hidden");
+    loadingEl.classList.add("show");
+    loadingEl.classList.remove("fade-out");
+    setLoadingStep(0);
+    startRinging();
+
+    pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    console.log("[WebRTC] PeerConnection created +" + ((performance.now() - _t0)|0) + "ms");
+
+    stream.getAudioTracks().forEach(function(track) { pc.addTrack(track, stream); });
+    pc.addTransceiver("video", { direction: "recvonly" });
+
+    pc.ontrack = function(ev) {
+      console.log("[WebRTC] remote track: " + ev.track.kind + " +" + ((performance.now() - _t0)|0) + "ms");
+      if (ev.track.kind === "video") {
+        videoEl.srcObject = new MediaStream([ev.track]);
+        videoEl.play().catch(function() {});
+      }
+      if (ev.track.kind === "audio") {
+        audioEl.srcObject = new MediaStream([ev.track]);
+        audioEl.play().catch(function() {});
+      }
+    };
+
+    var iceCandidates = [];
+    var iceTimer = null;
+    pc.onicecandidate = function(ev) {
+      if (!ev.candidate || !pcId) return;
+      iceCandidates.push({
+        candidate: ev.candidate.candidate,
+        sdpMid: ev.candidate.sdpMid,
+        sdpMLineIndex: ev.candidate.sdpMLineIndex,
+      });
+      clearTimeout(iceTimer);
+      iceTimer = setTimeout(function() {
+        fetch("/api/ice-candidate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pc_id: pcId, candidates: iceCandidates })
+        });
+        iceCandidates = [];
+      }, 100);
+    };
+
+    pc.onconnectionstatechange = function() {
+      console.log("[WebRTC] state: " + pc.connectionState + " +" + ((performance.now() - _t0)|0) + "ms");
+      if (pc.connectionState === "connected") { setStatus("Connected", "green"); setLoadingStep(1); }
+      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") cleanup();
+    };
+    pc.oniceconnectionstatechange = function() {
+      console.log("[WebRTC] ICE: " + pc.iceConnectionState + " +" + ((performance.now() - _t0)|0) + "ms");
+    };
+
+    var offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    try {
+      var resp = await fetch("/api/offer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sdp: offer.sdp, type: offer.type })
+      });
+      var answer = await resp.json();
+      if (answer.error) throw new Error(answer.error);
+      pcId = answer.pc_id;
+      await pc.setRemoteDescription({ sdp: answer.sdp, type: answer.type });
+      console.log("[WebRTC] SDP answer set, pc_id=" + pcId + " +" + ((performance.now() - _t0)|0) + "ms");
+    } catch(e) {
+      console.error("[WebRTC] offer failed +" + ((performance.now() - _t0)|0) + "ms:", e);
+      errorEl.classList.add("show");
+      resetStartBtn();
+    }
+  }
+
+  function cleanup() {
+    console.log("[Flow] cleanup()");
+    if (pc) { pc.close(); pc = null; }
+    pcId = null;
+    videoPlaying = false;
+    sessionStarted = false;
+    videoEl.srcObject = null;
+    audioEl.srcObject = null;
+    stopRinging();
+    setMicActive(false);
+    hideStatus();
+    hideActivity();
+    stopBtn.classList.remove("show");
+    busyEl.classList.remove("show");
+    hideTimeoutOverlay();
+    loadingEl.classList.remove("show");
+    loadingEl.classList.remove("fade-out");
+    clearTranscript();
+    idleEl.classList.remove("hidden");
+    idleVideoEl.classList.remove("hidden");
+    resetStartBtn();
+    if (typeof closeSidebar === "function") closeSidebar();
+  }
+
+  // ─── Timeout overlay ──────────────────────────────────────────
+  var timeoutEl = document.getElementById("timeout-overlay");
+  var timeoutCountdownEl = document.getElementById("timeout-countdown");
+  var timeoutTimer = null;
+  function showTimeoutOverlay() {
+    timeoutEl.classList.add("show");
+    var remaining = 8;
+    function tick() {
+      var homeText = (window._kiosk_t ? window._kiosk_t("countdown_home") : "Returning to home in");
+      timeoutCountdownEl.textContent = homeText + " " + remaining + "s...";
+      if (remaining <= 0) { hideTimeoutOverlay(); return; }
+      remaining--;
+      timeoutTimer = setTimeout(tick, 1000);
+    }
+    tick();
+  }
+  function hideTimeoutOverlay() {
+    timeoutEl.classList.remove("show");
+    if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
+  }
+
+  // ─── Error retry ──────────────────────────────────────────────
+  document.getElementById("error-retry-btn").addEventListener("click", function() {
+    errorEl.classList.remove("show");
+    resetStartBtn();
+  });
+
+  function resetStartBtn() {
+    startBtn.disabled = false;
+    startBtn.classList.remove("loading");
+    var t = window._kiosk_t ? window._kiosk_t("start_btn") : "Tap to Start";
+    startBtn.querySelector(".btn-text").textContent = t;
+  }
+
+  // ─── Buttons ────────────────────────────────────────────────────
+  startBtn.addEventListener("click", function() {
+    if (startBtn.disabled) return;
+    console.log("[UI] Start button clicked");
+    startBtn.disabled = true;
+    startBtn.classList.add("loading");
+    startBtn.querySelector(".btn-text").textContent = "Connecting...";
+    startWebRTC();
+  });
+
+  stopBtn.addEventListener("click", function() {
+    wsSend({ command: "end_session" });
+    cleanup();
+  });
+
+  // ─── Video ready detection ──────────────────────────────────────
+  videoEl.addEventListener("playing", function() {
+    console.log("[Video] Avatar video playing +" + (_t0 ? ((performance.now() - _t0)|0) + "ms" : "n/a"));
+    videoPlaying = true;
+    stopRinging();
+    setLoadingStep(3);
+    loadingEl.classList.add("fade-out");
+    setTimeout(function() { loadingEl.classList.remove("show"); }, 500);
+    if (sessionStarted) {
+      idleEl.classList.add("hidden");
+      setMicActive(true);
+      setStatus("Listening", "green");
+    }
+    console.log("[Video] Sending video_ready to server");
+    wsSend({ command: "video_ready" });
+  });
+
+  // ─── Help overlay ─────────────────────────────────────────────
+  var helpOverlay = document.getElementById("help-overlay");
+  document.getElementById("help-btn").addEventListener("click", function() {
+    helpOverlay.style.display = "flex";
+  });
+  document.getElementById("help-close-btn").addEventListener("click", function() {
+    helpOverlay.style.display = "none";
+  });
+
+  // ─── Init ───────────────────────────────────────────────────────
+  connectWS();
+
+  window._kiosk = {
+    showPanel: showPanel,
+    esc: esc,
+    wsSend: wsSend,
+    cleanup: cleanup,
+    _ic: _ic,
+  };
+})();
+
+// ─── Language toggle (EN / ES / RU) ───────────────────────────────
+(function() {
+  var currentLang = "en";
+  var _svgHelp = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  var _svgKbd = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="15" x2="16" y2="15"/><circle cx="7" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="12" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="17" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="7" cy="11" r=".8" fill="currentColor" stroke="none"/><circle cx="12" cy="11" r=".8" fill="currentColor" stroke="none"/><circle cx="17" cy="11" r=".8" fill="currentColor" stroke="none"/></svg>';
+  var strings = {
+    en: {
+      idle_subtitle: "AI-powered receptionist",
+      start_btn: "Tap to Start",
+      stop_btn: "End Session",
+      help_btn: _svgHelp + "Need Help?",
+      manual_btn: _svgKbd + "Manual<br>Check-in",
+      error_title: "System Unavailable",
+      error_sub: "Please see front desk for assistance.",
+      error_retry: "Try Again",
+      loading_text: "Preparing your receptionist",
+      loading_sub: "Usually 5-15 seconds",
+      step_connect: "Connecting",
+      step_avatar: "Loading avatar",
+      step_ready: "Almost ready",
+      busy_text: "Kiosk is currently in use. Please wait.",
+      timeout_title: "Session Ended",
+      timeout_sub: "Ended due to inactivity",
+      help_title: "Need Assistance?",
+      help_body: "Please see our receptionist at the front desk.",
+      help_close: "Close",
+      sidebar_title: "Manual Check-in",
+      sidebar_welcome: "Welcome!",
+      sidebar_find_apt: "Find your appointment",
+      label_lastname: "Last Name",
+      label_dob: "Date of Birth (MM/DD/YYYY)",
+      find_btn: "Find",
+      ph_lastname: "Enter your last name",
+      no_schedule: "We don't see you on today's schedule",
+      see_receptionist: "Please see our receptionist.",
+      back_btn: "\u21A9 Back",
+      new_search: "\u21A9 New Search",
+      checkin_btn: "\u2713 Check Me In",
+      checking_in: "Checking in...",
+      checked_in: "\u2713 Checked in!",
+      select_name: "Select your name",
+      your_apts_today: "Your appointments today",
+      need_dob_en: "Please also enter your date of birth",
+      need_name_en: "Please also enter your last name",
+      search_again: "Search Again",
+      no_identify: "Unable to identify your record",
+      no_identify_sub: "Please see our receptionist for help.",
+      countdown_search: "Returning to search in",
+      countdown_home: "Returning to home in",
+    },
+    es: {
+      idle_subtitle: "Recepcionista con inteligencia artificial",
+      start_btn: "Toque para comenzar",
+      stop_btn: "Terminar sesi\u00F3n",
+      help_btn: _svgHelp + "\u00BFNecesita ayuda?",
+      manual_btn: _svgKbd + "Registro<br>manual",
+      error_title: "Sistema no disponible",
+      error_sub: "Por favor vaya a la recepci\u00F3n.",
+      error_retry: "Intentar de nuevo",
+      loading_text: "Preparando su recepcionista",
+      loading_sub: "Usualmente 5-15 segundos",
+      step_connect: "Conectando",
+      step_avatar: "Cargando avatar",
+      step_ready: "Casi listo",
+      busy_text: "El kiosco est\u00E1 en uso. Por favor espere.",
+      timeout_title: "Sesi\u00F3n terminada",
+      timeout_sub: "Terminada por inactividad",
+      help_title: "\u00BFNecesita ayuda?",
+      help_body: "Por favor ac\u00E9rquese a la recepci\u00F3n.",
+      help_close: "Cerrar",
+      sidebar_title: "Registro manual",
+      sidebar_welcome: "\u00A1Bienvenidos!",
+      sidebar_find_apt: "Busque su cita",
+      label_lastname: "Apellido",
+      label_dob: "Fecha de nacimiento (MM/DD/AAAA)",
+      find_btn: "Buscar",
+      ph_lastname: "Ingrese su apellido",
+      no_schedule: "No encontramos su cita de hoy",
+      see_receptionist: "Por favor ac\u00E9rquese a la recepci\u00F3n.",
+      back_btn: "\u21A9 Volver",
+      new_search: "\u21A9 Nueva b\u00FAsqueda",
+      checkin_btn: "\u2713 Registrarme",
+      checking_in: "Registrando...",
+      checked_in: "\u2713 \u00A1Registrado!",
+      select_name: "Seleccione su nombre",
+      your_apts_today: "Sus citas de hoy",
+      need_dob_en: "Por favor ingrese su fecha de nacimiento",
+      need_name_en: "Por favor ingrese su apellido",
+      search_again: "Buscar de nuevo",
+      no_identify: "No pudimos identificar su registro",
+      no_identify_sub: "Por favor ac\u00E9rquese a la recepci\u00F3n.",
+      countdown_search: "Volviendo a b\u00FAsqueda en",
+      countdown_home: "Volviendo al inicio en",
+    },
+    ru: {
+      idle_subtitle: "\u0420\u0435\u0446\u0435\u043F\u0446\u0438\u044F \u0441 \u0418\u0418-\u0430\u0441\u0441\u0438\u0441\u0442\u0435\u043D\u0442\u043E\u043C",
+      start_btn: "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043D\u0430\u0447\u0430\u0442\u044C",
+      stop_btn: "\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044C",
+      help_btn: _svgHelp + "\u041F\u043E\u043C\u043E\u0449\u044C",
+      manual_btn: _svgKbd + "\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F<br>\u0432\u0440\u0443\u0447\u043D\u0443\u044E",
+      error_title: "\u0421\u0438\u0441\u0442\u0435\u043C\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430",
+      error_sub: "\u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u043E\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044C \u043D\u0430 \u0440\u0435\u0446\u0435\u043F\u0446\u0438\u044E.",
+      error_retry: "\u041F\u043E\u043F\u0440\u043E\u0431\u043E\u0432\u0430\u0442\u044C \u0441\u043D\u043E\u0432\u0430",
+      loading_text: "\u041F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0430 \u0440\u0435\u0446\u0435\u043F\u0446\u0438\u043E\u043D\u0438\u0441\u0442\u0430",
+      loading_sub: "\u041E\u0431\u044B\u0447\u043D\u043E 5-15 \u0441\u0435\u043A\u0443\u043D\u0434",
+      step_connect: "\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435",
+      step_avatar: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0430\u0432\u0430\u0442\u0430\u0440\u0430",
+      step_ready: "\u041F\u043E\u0447\u0442\u0438 \u0433\u043E\u0442\u043E\u0432\u043E",
+      busy_text: "\u041A\u0438\u043E\u0441\u043A \u0437\u0430\u043D\u044F\u0442. \u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u043F\u043E\u0434\u043E\u0436\u0434\u0438\u0442\u0435.",
+      timeout_title: "\u0421\u0435\u0441\u0441\u0438\u044F \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0430",
+      timeout_sub: "\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0430 \u0438\u0437-\u0437\u0430 \u043D\u0435\u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u0438",
+      help_title: "\u041D\u0443\u0436\u043D\u0430 \u043F\u043E\u043C\u043E\u0449\u044C?",
+      help_body: "\u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u043E\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044C \u043D\u0430 \u0440\u0435\u0446\u0435\u043F\u0446\u0438\u044E.",
+      help_close: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C",
+      sidebar_title: "\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F",
+      sidebar_welcome: "\u0414\u043E\u0431\u0440\u043E \u043F\u043E\u0436\u0430\u043B\u043E\u0432\u0430\u0442\u044C!",
+      sidebar_find_apt: "\u041D\u0430\u0439\u0434\u0438\u0442\u0435 \u0432\u0430\u0448\u0443 \u0437\u0430\u043F\u0438\u0441\u044C",
+      label_lastname: "\u0424\u0430\u043C\u0438\u043B\u0438\u044F",
+      label_dob: "\u0414\u0430\u0442\u0430 \u0440\u043E\u0436\u0434\u0435\u043D\u0438\u044F (MM/DD/YYYY)",
+      find_btn: "\u041D\u0430\u0439\u0442\u0438",
+      ph_lastname: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0444\u0430\u043C\u0438\u043B\u0438\u044E",
+      no_schedule: "\u0412\u0430\u0441 \u043D\u0435\u0442 \u0432 \u0440\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0438 \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
+      see_receptionist: "\u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u043E\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044C \u043D\u0430 \u0440\u0435\u0446\u0435\u043F\u0446\u0438\u044E.",
+      back_btn: "\u21A9 \u041D\u0430\u0437\u0430\u0434",
+      new_search: "\u21A9 \u041D\u043E\u0432\u044B\u0439 \u043F\u043E\u0438\u0441\u043A",
+      checkin_btn: "\u2713 \u0417\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C\u0441\u044F",
+      checking_in: "\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F...",
+      checked_in: "\u2713 \u0417\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043D\u043E!",
+      select_name: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0430\u0448\u0435 \u0438\u043C\u044F",
+      your_apts_today: "\u0412\u0430\u0448\u0438 \u0437\u0430\u043F\u0438\u0441\u0438 \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
+      need_dob_en: "\u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0434\u0430\u0442\u0443 \u0440\u043E\u0436\u0434\u0435\u043D\u0438\u044F",
+      need_name_en: "\u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0444\u0430\u043C\u0438\u043B\u0438\u044E",
+      search_again: "\u0418\u0441\u043A\u0430\u0442\u044C \u0441\u043D\u043E\u0432\u0430",
+      no_identify: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
+      no_identify_sub: "\u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u043E\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044C \u043D\u0430 \u0440\u0435\u0446\u0435\u043F\u0446\u0438\u044E.",
+      countdown_search: "\u0412\u043E\u0437\u0432\u0440\u0430\u0442 \u043A \u043F\u043E\u0438\u0441\u043A\u0443 \u0447\u0435\u0440\u0435\u0437",
+      countdown_home: "\u0412\u043E\u0437\u0432\u0440\u0430\u0442 \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u0443\u044E \u0447\u0435\u0440\u0435\u0437",
+    },
+  };
+
+  function setLang(lang) {
+    currentLang = lang;
+    document.querySelectorAll("[data-i18n]").forEach(function(el) {
+      var key = el.getAttribute("data-i18n");
+      if (strings[lang] && strings[lang][key]) {
+        el.innerHTML = strings[lang][key];
+      }
+    });
+    // Handle placeholder translations
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(function(el) {
+      var key = el.getAttribute("data-i18n-placeholder");
+      if (strings[lang] && strings[lang][key]) {
+        el.placeholder = strings[lang][key];
+      }
+    });
+    document.querySelectorAll(".lang-opt").forEach(function(btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-lang") === lang);
+    });
+  }
+
+  document.querySelectorAll(".lang-opt").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      setLang(this.getAttribute("data-lang"));
+    });
+  });
+
+  // Expose for other modules
+  window._kiosk_lang = function() { return currentLang; };
+  window._kiosk_t = function(key) {
+    var lang = currentLang;
+    return (strings[lang] && strings[lang][key]) || (strings.en[key]) || key;
+  };
+})();
+
+// ─── Manual Sidebar ───────────────────────────────────────────────
+(function() {
+  var manualBtn = document.getElementById("manual-btn");
+  var sidebar   = document.getElementById("manual-sidebar");
+  var closeBtn  = document.getElementById("sidebar-close");
+
+  var searchScreen  = document.getElementById("manual-search-screen");
+  var resultsScreen = document.getElementById("manual-results-screen");
+  var lastNameInput = document.getElementById("manual-lastname");
+  var dobInput      = document.getElementById("manual-dob");
+  var findBtn       = document.getElementById("manual-find-btn");
+
+  var isOpen = false;
+  var countdownTimer = null;
+
+  function esc(s) { return window._kiosk.esc(s); }
+
+  function openSidebar() {
+    isOpen = true;
+    sidebar.classList.add("open");
+    manualBtn.style.display = "none";
+    showSearchScreen();
+  }
+
+  window.closeSidebar = function() {
+    isOpen = false;
+    sidebar.classList.remove("open");
+    manualBtn.style.display = "";
+    clearCountdown();
+  };
+
+  function toggleSidebar() {
+    if (isOpen) closeSidebar();
+    else openSidebar();
+  }
+
+  function t(key) { return window._kiosk_t ? window._kiosk_t(key) : key; }
+  var _svgCheck = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px"><polyline points="20 6 9 17 4 12"/></svg>';
+
+  function showSearchScreen() {
+    searchScreen.style.display = "";
+    resultsScreen.style.display = "none";
+    lastNameInput.value = "";
+    dobInput.value = "";
+    findBtn.disabled = false;
+    findBtn.textContent = t("find_btn");
+    clearCountdown();
+    setTimeout(function() { lastNameInput.focus(); }, 200);
+  }
+
+  // ─── Button handlers ──────────────────────────────────────────
+  manualBtn.addEventListener("click", toggleSidebar);
+  closeBtn.addEventListener("click", closeSidebar);
+
+  // ─── Search ──────────────────────────────────────────────────
+  findBtn.addEventListener("click", doSearch);
+  lastNameInput.addEventListener("keydown", function(e) { if (e.key === "Enter") dobInput.focus(); });
+  dobInput.addEventListener("keydown", function(e) { if (e.key === "Enter") doSearch(); });
+
+  var searchTimeoutTimer = null;
+  function doSearch() {
+    var lastName = lastNameInput.value.trim();
+    var dob = dobInput.value.trim();
+    if (!lastName && !dob) { lastNameInput.focus(); return; }
+    findBtn.disabled = true;
+    findBtn.textContent = "Searching...";
+    console.log("[Manual] Searching: " + lastName + ", DOB: " + dob);
+    // Timeout fallback: re-enable button after 10s if no response
+    clearTimeout(searchTimeoutTimer);
+    searchTimeoutTimer = setTimeout(function() {
+      findBtn.disabled = false;
+      findBtn.textContent = t("find_btn");
+    }, 10000);
+    window._kiosk.wsSend({
+      command: "manual_search",
+      last_name: lastName || null,
+      dob: dob || null,
+    });
+  }
+
+  // ─── Handle search results ───────────────────────────────────
+  window.handleManualResults = function(data) {
+    if (!isOpen) return;
+    clearTimeout(searchTimeoutTimer);
+    findBtn.disabled = false;
+    findBtn.textContent = t("find_btn");
+    var results = (data && data.results) || [];
+    var status = (data && data.status) || "ok";
+    console.log("[Manual] status=" + status + ", results=" + results.length);
+
+    if (status === "need_dob") {
+      showNeedMore("dob", data.message);
+    } else if (status === "need_name") {
+      showNeedMore("name", data.message);
+    } else if (status === "ambiguous") {
+      showAmbiguous(data.message);
+    } else if (results.length === 0) {
+      showNoResults();
+    } else if (results.length === 1) {
+      showAppointmentCard(results[0]);
+    } else {
+      // Multiple appointments for same patient — show all
+      showMultipleAppointments(results);
+    }
+  };
+
+  // ─── No results ──────────────────────────────────────────────
+  function showNoResults() {
+    searchScreen.style.display = "none";
+    resultsScreen.style.display = "flex";
+    resultsScreen.innerHTML =
+      '<div class="manual-error">' +
+        '<div class="err-title">' + t("no_schedule") + '</div>' +
+        '<div class="err-sub">' + t("see_receptionist") + '</div>' +
+      '</div>' +
+      '<div class="countdown-text" id="manual-countdown"></div>' +
+      '<button class="manual-back-btn" id="manual-back">' + t("back_btn") + '</button>';
+    document.getElementById("manual-back").addEventListener("click", showSearchScreen);
+    startCountdown(10);
+  }
+
+  // ─── Multiple results ────────────────────────────────────────
+  function showResultsList(results) {
+    searchScreen.style.display = "none";
+    resultsScreen.style.display = "flex";
+    var html = '<div class="manual-heading" style="width:100%"><h2>' + t("select_name") + '</h2></div>';
+    results.forEach(function(r, i) {
+      var privacyName = esc(r.PatFName) + " " + esc((r.PatLName || "").charAt(0)) + ".";
+      html += '<div class="manual-list-item" data-idx="' + i + '">' +
+        '<span class="name">' + privacyName + '</span>' +
+        '<span class="time">' + esc(r.time) + '</span>' +
+      '</div>';
+    });
+    html += '<button class="manual-back-btn" id="manual-back">' + t("back_btn") + '</button>';
+    resultsScreen.innerHTML = html;
+    resultsScreen.querySelectorAll(".manual-list-item").forEach(function(item) {
+      item.addEventListener("click", function() {
+        showAppointmentCard(results[parseInt(this.getAttribute("data-idx"), 10)]);
+      });
+    });
+    document.getElementById("manual-back").addEventListener("click", showSearchScreen);
+  }
+
+  // ─── Appointment card ────────────────────────────────────────
+  function showAppointmentCard(apt) {
+    searchScreen.style.display = "none";
+    resultsScreen.style.display = "flex";
+    var fullName = esc(apt.PatFName) + " " + esc(apt.PatLName);
+    var aptNum = apt.apt_num || "";
+    resultsScreen.innerHTML =
+      '<div class="manual-result-card">' +
+        '<div class="patient-name">' + fullName + '</div>' +
+        '<div class="apt-time-large">' + esc(apt.time) + '</div>' +
+        '<div class="apt-details">' +
+          '<strong>' + esc(apt.procedure) + '</strong><br>' +
+          esc(apt.provider) +
+          (apt.room ? '<br>Room: ' + esc(apt.room) : '') +
+        '</div>' +
+      '</div>' +
+      /* checkin button disabled — read-only mode */
+      '<div class="countdown-text" id="manual-countdown"></div>' +
+      '<button class="manual-back-btn" id="manual-back">' + t("new_search") + '</button>';
+    document.getElementById("manual-back").addEventListener("click", showSearchScreen);
+
+    window._kiosk.showPanel("green", window._kiosk._ic ? window._kiosk._ic.check : "\u2713", "Appointment Found",
+      "<strong>" + fullName + "</strong><br>" +
+      "<strong style='font-size:18px;color:#22c55e'>" + esc(apt.time) + "</strong><br>" +
+      esc(apt.procedure) + " &mdash; " + esc(apt.provider) +
+      (apt.room ? "<br>Room: " + esc(apt.room) : ""),
+      10000);
+
+    startCountdown(15);
+  }
+
+  // ─── Need more info (HIPAA disambiguation) ─────────────────
+  function showNeedMore(type, message) {
+    searchScreen.style.display = "none";
+    resultsScreen.style.display = "flex";
+    var isDob = (type === "dob");
+    var title = isDob ? t("need_dob_en") : t("need_name_en");
+    var fieldLabel = isDob ? t("label_dob") : t("label_lastname");
+    var fieldPlaceholder = isDob ? "MM/DD/YYYY" : t("ph_lastname");
+    var fieldId = "manual-extra-field";
+
+    resultsScreen.innerHTML =
+      '<div class="manual-heading" style="width:100%">' +
+        '<h2 style="font-size:18px;font-weight:400">' + title + '</h2>' +
+      '</div>' +
+      '<div class="manual-field" style="width:100%">' +
+        '<div class="manual-label">' + fieldLabel + '</div>' +
+        '<input type="text" id="' + fieldId + '" class="manual-input" placeholder="' + fieldPlaceholder + '" autocomplete="off">' +
+      '</div>' +
+      '<button class="manual-find-btn" id="manual-extra-submit">' + t("search_again") + '</button>' +
+      '<button class="manual-back-btn" id="manual-back">' + t("back_btn") + '</button>';
+
+    var extraInput = document.getElementById(fieldId);
+    setTimeout(function() { extraInput.focus(); }, 200);
+
+    document.getElementById("manual-extra-submit").addEventListener("click", function() {
+      var val = extraInput.value.trim();
+      if (!val) { extraInput.focus(); return; }
+      // Re-search with both fields
+      var ln = isDob ? lastNameInput.value.trim() : val;
+      var db = isDob ? val : dobInput.value.trim();
+      findBtn.disabled = true;
+      findBtn.textContent = "Searching...";
+      // Update main inputs so re-search uses them
+      if (isDob) dobInput.value = val;
+      else lastNameInput.value = val;
+      window._kiosk.wsSend({
+        command: "manual_search",
+        last_name: ln || null,
+        dob: db || null,
+      });
+      // Show results back in this screen
+      searchScreen.style.display = "none";
+      resultsScreen.style.display = "flex";
+      resultsScreen.innerHTML = '<div style="color:#888;font-size:15px">Searching...</div>';
+    });
+
+    extraInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") document.getElementById("manual-extra-submit").click();
+    });
+
+    document.getElementById("manual-back").addEventListener("click", showSearchScreen);
+  }
+
+  // ─── Ambiguous (can't disambiguate even with both fields) ──
+  function showAmbiguous(message) {
+    searchScreen.style.display = "none";
+    resultsScreen.style.display = "flex";
+    resultsScreen.innerHTML =
+      '<div class="manual-error">' +
+        '<div class="err-title">' + t("no_identify") + '</div>' +
+        '<div class="err-sub">' + t("no_identify_sub") + '</div>' +
+      '</div>' +
+      '<div class="countdown-text" id="manual-countdown"></div>' +
+      '<button class="manual-back-btn" id="manual-back">' + t("back_btn") + '</button>';
+    document.getElementById("manual-back").addEventListener("click", showSearchScreen);
+    startCountdown(10);
+  }
+
+  // ─── Multiple appointments for same patient ────────────────
+  function showMultipleAppointments(results) {
+    searchScreen.style.display = "none";
+    resultsScreen.style.display = "flex";
+    var fullName = esc(results[0].PatFName) + " " + esc(results[0].PatLName);
+    var html = '<div class="manual-heading" style="width:100%"><h2>' + fullName + '</h2>' +
+      '<div class="subtitle">' + t("your_apts_today") + '</div></div>';
+    results.forEach(function(apt, idx) {
+      var aptNum = apt.apt_num || "";
+      html +=
+        '<div class="manual-result-card" style="text-align:left">' +
+          '<div class="apt-time-large" style="font-size:24px;text-align:center">' + esc(apt.time) + '</div>' +
+          '<div class="apt-details" style="text-align:center">' +
+            '<strong>' + esc(apt.procedure) + '</strong><br>' +
+            esc(apt.provider) +
+            (apt.room ? '<br>Room: ' + esc(apt.room) : '') +
+          '</div>' +
+          /* checkin buttons disabled — read-only mode */
+        '</div>';
+    });
+    html += '<div class="countdown-text" id="manual-countdown"></div>' +
+      '<button class="manual-back-btn" id="manual-back">' + t("new_search") + '</button>';
+    resultsScreen.innerHTML = html;
+
+    document.getElementById("manual-back").addEventListener("click", showSearchScreen);
+
+    window._kiosk.showPanel("green", window._kiosk._ic ? window._kiosk._ic.check : "\u2713", "Appointments Found",
+      "<strong>" + fullName + "</strong> &mdash; " + results.length + " " + t("your_apts_today").toLowerCase(),
+      10000);
+
+    startCountdown(15);
+  }
+
+  // check-in result handler disabled — read-only mode
+  window.handleCheckinResult = function() {};
+
+  // ─── Countdown ───────────────────────────────────────────────
+  function startCountdown(seconds) {
+    clearCountdown();
+    var remaining = seconds;
+    var el = document.getElementById("manual-countdown");
+    function tick() {
+      if (el) el.textContent = t("countdown_search") + " " + remaining + "s...";
+      if (remaining <= 0) { showSearchScreen(); return; }
+      remaining--;
+      countdownTimer = setTimeout(tick, 1000);
+    }
+    tick();
+  }
+
+  function clearCountdown() {
+    if (countdownTimer) { clearTimeout(countdownTimer); countdownTimer = null; }
+  }
+})();
+</script>
+</body>
+</html>
