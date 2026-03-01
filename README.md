@@ -67,10 +67,10 @@ Built on [Pipecat](https://github.com/pipecat-ai/pipecat) framework with WebRTC 
 ┌─────────────────────────────────────────────────────┐
 │                   Browser (Kiosk)                    │
 │                                                      │
-│  ┌──────────┐  ┌────────────┐  ┌──────────────────┐ │
+│  ┌──────────┐  ┌────────────┐  ┌──────────────────┐  │
 │  │  Avatar   │  │ Transcript │  │   Info Panels    │ │
 │  │  Video    │  │  Overlay   │  │ (Balance, Appts) │ │
-│  └────▲─────┘  └─────▲──────┘  └───────▲──────────┘ │
+│  └────▲─────┘  └─────▲──────┘  └───────▲──────────┘  │
 │       │              │                  │            │
 │       │         WebSocket (events)      │            │
 │       │              │                  │            │
@@ -98,11 +98,11 @@ Built on [Pipecat](https://github.com/pipecat-ai/pipecat) framework with WebRTC 
 │  │       ↓                         │                 │
 │  │  Transport Out (video + audio)  │                 │
 │  └─────────────────────────────────┘                 │
-│                    │                                  │
+│                    │                                 │
 │              ┌─────▼─────┐                           │
-│              │ Open Dental│                           │
-│              │   MySQL    │                           │
-│              └────────────┘                           │
+│              │ Open Dental│                          │
+│              │   MySQL    │                          │
+│              └────────────┘                          │
 └──────────────────────────────────────────────────────┘
 ```
 
