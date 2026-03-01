@@ -261,20 +261,26 @@ Open `http://localhost:8080` in a browser (or on the kiosk display).
 
 ---
 
-## Demo
+## Avatar Idle Video
 
-https://github.com/user-attachments/assets/placeholder
+The avatar idle loop video (15 MB) is not included in this repository. You can download it and place it in the project root:
 
-https://storage.googleapis.com/simliai2.appspot.com/videos/f0ba4efe-7946-45de-9955-c04a04c367b9.mp4
+[Download idle video (MP4)](https://storage.googleapis.com/simliai2.appspot.com/videos/f0ba4efe-7946-45de-9955-c04a04c367b9.mp4)
+
+> **Note:** Simli AI provides 50 free minutes per month — more than enough for testing and evaluation.
 
 ---
 
-## Contact
+## Looking for a Technical Partner?
 
-If you're interested in this project, I'd be happy to work on improvements and upgrades.
+I built this end-to-end — from real-time voice pipeline and avatar integration to the database layer and kiosk UI. If your company needs a production-grade conversational AI solution but doesn't have the engineering talent to build one, let's talk.
 
-- Email: [tr00x@proton.me](mailto:tr00x@proton.me)
-- Telegram: [@tr00x](https://t.me/tr00x)
+I'm available for contract work, consulting, and full builds.
+
+**Get in touch:**
+
+[![Email](https://img.shields.io/badge/Email-tr00x%40proton.me-blue?style=for-the-badge&logo=protonmail&logoColor=white)](mailto:tr00x@proton.me)
+[![Telegram](https://img.shields.io/badge/Telegram-@tr00x-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/tr00x)
 
 ---
 
